@@ -1,0 +1,17 @@
+{
+  "name": "robopaint-translator",
+  "version": "0.0.1",
+  "description": "Robopaint auto translator.",
+  "main": "translator.js",
+  "author": "techninja",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/techninja/robopaint-translator.git"
+  },
+  "dependencies": {
+    "exec-queue": "0.0.2",
+    "traverse": "0.6.6"
+  },
+  "readmeFilename": "README.md"
+}
