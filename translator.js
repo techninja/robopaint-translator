@@ -1,5 +1,6 @@
 var exec = require('exec-queue');
 var fs = require('fs');
+var path = require('path');
 var traverse = require('traverse');
 var extend = require('util')._extend;
 
@@ -8,12 +9,17 @@ var rpPackage = JSON.parse(fs.readFileSync('../code/package.json', 'utf8'));
 var langs = ['ar', 'bn', 'de', 'es', 'fr', 'hi', 'pt', 'ru', 'ur', 'zh-CN'];
 var defaultMetaCreator = "techninja via GoogleTranslate";
 
+// Any set of paths to be updated only once (clear when done)
+var forceUpdate = [
+
+];
+
 // List all folders where i18n content lives
 var locations = [
   {type:'mode', loc: 'colorsets'},
   {type:'root', loc: 'colorsets/_i18n/colorsets'},
   {type:'root', loc: '_i18n/robopaint'},
-  {type:'mode', loc: 'modes'}
+  {type:'mode', loc: '../node_modules'}
 ];
 
 var i18nBases = []; // This final list is built from the previous array.
@@ -32,8 +38,21 @@ locations.forEach(function(location) {
   } else { // Indirect, actual folders based off top level dir listing
     var dir = rpRoot + location.loc + '/';
     fs.readdirSync(dir).forEach(function(file) {
-      if (!fs.statSync(dir + file).isFile() && file !== '_i18n') {
-        i18nBases.push(dir + file + '/_i18n/' + file);
+      // i18n folder must exist for it to be considered eligible for translation
+      if (fs.existsSync(dir + file + '/_i18n/')) {
+        if (!fs.statSync(dir + file).isFile() && file !== '_i18n') {
+          var namePrefix = file;
+
+          // If we have a package.json and it defines a mode, get its namePrefix
+          if (fs.existsSync(dir + file + '/package.json')) {
+            var p = require(dir + file + '/package.json');
+            if (p.robopaint) {
+              namePrefix = p.robopaint.name;
+            }
+          }
+
+          i18nBases.push(dir + file + '/_i18n/' + namePrefix);
+        }
       }
     });
   }
@@ -49,7 +68,7 @@ i18nBases.forEach(function(i18nBase) {
     var langFile = i18nBase + '.' + lang + '.json';
     var langTrans = {}; // Placeholder for this lang's translation object
 
-    var translateList = [];
+    var translateList = extend([], forceUpdate);
 
     // Does the file exist?
     if (fs.existsSync(langFile)) { // Translation already exists!
@@ -84,21 +103,28 @@ i18nBases.forEach(function(i18nBase) {
     // Move through every translate object path and translate it
     if (translateList.length !== 0) {
       translateList.forEach(function (transPath) {
-        translate(rootTrans.get(transPath), lang, function(translatedText, error){
-          if (translatedText === false) {
-            console.error("Translation failed for", transPath, 'Try again.', error);
-          } else {
-            langTrans.set(transPath, translatedText);
-          }
 
+        // Only translate existing sources
+        if (typeof rootTrans.get(transPath) !== 'undefined') {
+          translate(rootTrans.get(transPath), lang, function(translatedText, error){
+            if (translatedText === false) {
+              console.error("Translation failed for", transPath, 'Try again.', error);
+            } else {
+              langTrans.set(transPath, translatedText);
+            }
+
+            leafCount++;
+            // If we did as many as there are, we're done!
+            if (leafCount == translateList.length) {
+              langTrans.set(['_meta', 'release'], rpPackage.version);
+              console.log('Wrote ' + leafCount + ' strings to ' + langFile);
+              fs.writeFile(langFile, JSON.stringify(langTrans.value, null, 2) + "\n");
+            }
+          });
+        } else {
+          // Source Key Not found? We still have to count it
           leafCount++;
-          // If we did as many as there are, we're done!
-          if (leafCount == translateList.length) {
-            langTrans.set(['_meta', 'release'], rpPackage.version);
-            console.log('Wrote ' + leafCount + ' strings to ' + langFile);
-            fs.writeFile(langFile, JSON.stringify(langTrans.value, null, 2) + "\n");
-          }
-        });
+        }
       });
     } else {
       console.log('No changes needed for', langFile);
