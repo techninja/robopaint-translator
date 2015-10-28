@@ -15,7 +15,7 @@ down the line.
 0. Clone the repo as a sibling to your RoboPaint repository. My local RP repo
 lives in a folder called "code" as it already lives in a `robopaint` folder. If
 you keep yours the default "robopaint", you'll need to change the references on
-line 6 & 7.
+lines 7 & 8.
 0. `npm install`
 0. `pip install goslate`
 0. Test translation by running `python trans.py en es "Hello world!"`, should
